@@ -1,0 +1,7 @@
+scikit-build
+pandas
+memory_profiler
+seaborn
+opencv-python 
+higra
+scikit-image
