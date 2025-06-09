@@ -6,10 +6,6 @@ import time
 import higra as hg
 import imageio 
 
-# try:
-#     from utils import * # imshow, locate_resource, get_sed_model_file
-# except: # we are probably running from the cloud, try to fetch utils functions from URL
-#     import urllib.request as request; exec(request.urlopen('https://github.com/higra/Higra-Notebooks/raw/master/utils.py').read(), globals())
     
 from memory_profiler import memory_usage
 from scipy import ndimage as ndi
@@ -152,8 +148,6 @@ class Image_2D:
         
         size = image.shape[:2]
         # Detección de bordes estructurados (requiere OpenCV contrib)
-        # detector = cv2.ximgproc.createStructuredEdgeDetection(get_sed_model_file())
-        # gradient_image = detector.detectEdges(image)
         gradient_image = sobel(image)
 
         # Construcción del grafo y jerarquía
@@ -233,35 +227,7 @@ def update_dataframe(df, img, algo, resource):
 
 
 # ====================================================================
-# SECCIÓN 4: FUNCIONES UTILITARIAS Y OBSOLETAS
-# ====================================================================
-
-# Esta función es una alternativa para generar marcadores, no usada por los flujos principales.
-def label_2d_cv_2(img, min_dist, need_invert=False):
-    """Genera marcadores usando picos locales en la transformada de distancia."""
-    thresh = cv2.threshold(img, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
-    if need_invert:
-        thresh = 255 - thresh
-    D = ndi.distance_transform_edt(thresh)
-    
-    localMax = peak_local_max(
-        D, 
-        min_distance=min_dist,
-        footprint=np.ones((3, 3)),
-        labels=thresh
-    )
-    
-    markers = ndi.label(localMax, structure=np.ones((3, 3)))[0]
-    return (thresh, D, markers)
-
-# --- Funciones comentadas ---
-# Estas funciones parecen ser de una librería diferente (no OpenCV) y no son compatibles.
-# def getArrayFromImage(imIn, size): ...
-# def fillImageWithArray(array, imOut): ...
-
-
-# ====================================================================
-# SECCIÓN 5: BLOQUE PRINCIPAL DE EJECUCIÓN
+# SECCIÓN 4: BLOQUE PRINCIPAL DE EJECUCIÓN
 # ====================================================================
 
 if __name__ == '__main__':
@@ -280,7 +246,7 @@ if __name__ == '__main__':
         print("Por favor, edita el script y cambia la variable INPUT_FOLDER.")
     else:
         # --- Recopilar imágenes y crear el DataFrame ---
-        image_files = [f for f in os.listdir(INPUT_FOLDER) if f.endswith(('.png', '.jpg', '.tif'))]
+        image_files = [f for f in os.listdir(INPUT_FOLDER) if f.endswith(('.png'))]
         
         if not image_files:
             print(f"No se encontraron imágenes en '{INPUT_FOLDER}'.")

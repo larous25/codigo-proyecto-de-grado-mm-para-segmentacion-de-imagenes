@@ -1,104 +1,88 @@
 import os
-from sys import path
+import cv2
+import higra
 import argparse
 from tools import create_data_frame, Image_2D, update_dataframe
-import cv2
 
-# Watershed segmentations
-''' skimage.morphology.watershed,
-    cv2.watershed,
-'''
 
-parser = argparse.ArgumentParser(description='Compare watershed segmentation time and memory of 2D images.')
-parser.add_argument("-wl", "--watershed_lines", help="Construct watershed lines.", action='store_true')
-parser.add_argument("--save", help="Save results of segmentation.", action='store_true')
-parser.add_argument("-d", "--dir", help="Images directory.")
-parser.add_argument("--resource", help="Can evaluate time and memory.")
-parser.add_argument("--logs_dir", help="Directory with result of segmentation.")
+# Argumentos de línea de comandos
+parser = argparse.ArgumentParser(description='Comparar tiempo y memoria de segmentación Watershed en imágenes 2D.')
+parser.add_argument("--save", help="Guardar los resultados de segmentación.", action='store_true')
+parser.add_argument("-d", "--dir", help="Directorio con imágenes.")
+parser.add_argument("--resource", help="Recurso a evaluar: 'time' o 'memory'.", required=True)
+parser.add_argument("--logs_dir", help="Directorio para guardar resultados.")
+
 args = parser.parse_args()
 
 resource = args.resource
-
 NEED_SAVE = args.save
-
-if args.logs_dir is not None:
-    LOGS_FOLDER = args.logs_dir
-else:   
-    LOGS_FOLDER = 'logs_watershed'
-
-NEED_WL = args.watershed_lines
-
-if args.dir is not None:
-    IMGS_FOLDER = args.dir
-else:
-    IMGS_FOLDER = 'dest_imgs'
+LOGS_FOLDER = args.logs_dir if args.logs_dir else 'logs_watershed'
+IMGS_FOLDER = args.dir if args.dir else 'dest_imgs'
 
 INIT_SIZE = 512
 INIT_MIN_DIST = 0
-   
+
+# Cargar lista de imágenes
 imgs = os.listdir(IMGS_FOLDER)
-imgs.sort(key=lambda x: int(x.split('.',1)[0].rsplit('_',1)[1]))
+imgs = [f for f in imgs if f.endswith('.png')]
+imgs.sort(key=lambda x: int(x.split('.', 1)[0].rsplit('_', 1)[1]))
 
-image_init_min_dist = {'board': 20,
-                       'circles': 6,
-                       'coins': 35,
-                       'maze':13,
-                       'fruits': 15}
-
+# Distancias mínimas por tipo de imagen
+image_init_min_dist = {
+    'board': 20,
+    'circles': 6,
+    'coins': 35,
+    'maze': 13,
+    'fruits': 15
+}
 image_need_invert = ['circles', 'coins']
 
-iterables = [['skimage', 'opencv'],
-             ['img_name', 'size', 'time']]
-df = create_data_frame(imgs, iterables)
+# Algoritmos y recursos
+ALGORITHMS = ['skimage', 'opencv', 'higra']
 
+resources = ['time', 'memory']
+df = create_data_frame(imgs, ALGORITHMS, resources)
 
+# Procesamiento principal
 if __name__ == '__main__':
-    for filename in imgs:
-        cur_img = Image_2D(IMGS_FOLDER, filename, INIT_SIZE)
-        INIT_MIN_DIST = image_init_min_dist[cur_img.cluster]
+    # --- Argumentos de línea de comandos ---
 
-        print("Process", cur_img.filename)
+    image_files = [f for f in os.listdir(IMGS_FOLDER) if f.endswith('.png')]
+    image_files.sort(key=lambda x: int(x.split('.', 1)[0].rsplit('_', 1)[1]))
 
-        #if NEED_SAVE:
-        #    cv2.pyrMeanShiftFiltering(cur_img.img, int(10*cur_img.mul_size), 10)
+    if not image_files:
+        print(f"No se encontraron imágenes en '{IMGS_FOLDER}'.")
+        exit(1)
 
-        cur_img.init_label(INIT_MIN_DIST, image_need_invert)
-        if cur_img.cluster == 'maze':
-            cur_img.markers[:] = 0
-            cur_img.markers[int(490*cur_img.mul_size),int(500*cur_img.mul_size)] = 1
+    # Crear DataFrame de resultados
+    results_df = create_data_frame(image_files, ALGORITHMS, ['time', 'memory'])
 
-    # SKIMAGE PROCESSING
-    # en esta parte se ejecuta
-        ALGO = "skimage"
-        cur_img.process_ws(ALGO, NEED_WL, resource)
-        print("Process "+resource+" of "+ALGO, cur_img.result[resource])
+    # Procesamiento principal
+    for filename in image_files:
+        print(f"\nProcesando: {filename}")
+        try:
+            img_instance = Image_2D(folder=IMGS_FOLDER, filename=filename, init_size=INIT_SIZE)
 
-        update_dataframe(df, cur_img, ALGO, resource)
+            for algo in ALGORITHMS:
+                try:
+                    print(f"   Ejecutando {algo} ({resource})...")
+                    img_instance.process_ws(ALGO=algo, res_type=resource)
+                    print(f"   {algo}: {resource} = {img_instance.result[resource]}")
+                    update_dataframe(results_df, img_instance, algo, resource)
 
-        if NEED_SAVE:
-            cur_img.log_labels(LOGS_FOLDER, ALGO)
-        
-    # OPENCV PROCESSING
+                    if NEED_SAVE:
+                        log_labels_2d(LOGS_FOLDER, f"{algo}_{img_instance.cluster}_{img_instance.size}", img_instance.labels)
 
-        if NEED_WL:
-            ALGO = "opencv"
+                except Exception as e:
+                    print(f"   Error con {algo}: {e}")
 
-            cur_img.process_ws(ALGO, NEED_WL, resource)
-            print("Process "+resource+" of "+ALGO, cur_img.result[resource])
+        except Exception as e:
+            print(f"Error procesando {filename}: {e}")
 
-            update_dataframe(df, cur_img, ALGO, resource)
+    # Guardar CSV de resultados
+    os.makedirs(os.path.join(LOGS_FOLDER, "csv"), exist_ok=True)
+    suffix = "proc_time.csv" if resource == "time" else "proc_mem.csv"
+    csv_path = os.path.join(LOGS_FOLDER, "csv", suffix)
+    results_df.to_csv(csv_path)
+    print(f"\nResultados guardados en: {csv_path}")
 
-            if NEED_SAVE:
-                cur_img.log_labels(LOGS_FOLDER, ALGO)
-    
-
-    if resource == 'time':
-        if NEED_WL:
-            df.to_csv(os.path.join(LOGS_FOLDER+"/csv", "proc_time_WL.csv"))
-        else:
-            df.to_csv(os.path.join(LOGS_FOLDER+"/csv", "proc_time.csv"))
-    elif resource == 'memory':
-        if NEED_WL:
-            df.to_csv(os.path.join(LOGS_FOLDER+"/csv", "proc_mem_WL.csv"))
-        else:
-            df.to_csv(os.path.join(LOGS_FOLDER+"/csv", "proc_mem.csv"))
