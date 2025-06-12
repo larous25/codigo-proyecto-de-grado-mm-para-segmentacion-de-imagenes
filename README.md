@@ -39,12 +39,9 @@ El archivo [`Makefile`](./Makefile) ofrece una serie de comandos predefinidos pa
 
 ```make
 make init               # Crear la estructura de directorios y las imágenes de prueba
-make compare_all_2D     # Comparar tiempo de ejecución y memoria máxima para el caso 2D
+make compare_2D     # Comparar tiempo de ejecución y memoria máxima para el caso 2D
 
 make gen_imgs           # Generar una serie de imágenes 2D de prueba a partir de las imágenes en $(SOURCE_FOLDER)
-
-make compare_2D_time    # Comparar el tiempo de ejecución para el caso 2D
-make compare_2D_mem     # Comparar la memoria máxima para el caso 2D
 
 make plot_all           # Generar gráficos basados en todas las comparaciones
 make plots_time         # Generar gráficos de comparación de tiempo

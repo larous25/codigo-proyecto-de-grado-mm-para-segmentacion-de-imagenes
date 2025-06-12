@@ -9,12 +9,12 @@ from tools import create_data_frame, Image_2D, update_dataframe
 parser = argparse.ArgumentParser(description='Comparar tiempo y memoria de segmentación Watershed en imágenes 2D.')
 parser.add_argument("--save", help="Guardar los resultados de segmentación.", action='store_true')
 parser.add_argument("-d", "--dir", help="Directorio con imágenes.")
-parser.add_argument("--resource", help="Recurso a evaluar: 'time' o 'memory'.", required=True)
+
 parser.add_argument("--logs_dir", help="Directorio para guardar resultados.")
 
 args = parser.parse_args()
 
-resource = args.resource
+
 NEED_SAVE = args.save
 LOGS_FOLDER = args.logs_dir if args.logs_dir else 'logs_watershed'
 IMGS_FOLDER = args.dir if args.dir else 'dest_imgs'
@@ -64,24 +64,25 @@ if __name__ == '__main__':
             img_instance = Image_2D(folder=IMGS_FOLDER, filename=filename, init_size=INIT_SIZE)
 
             for algo in ALGORITHMS:
-                try:
-                    print(f"   Ejecutando {algo} ({resource})...")
-                    img_instance.process_ws(ALGO=algo, res_type=resource)
-                    print(f"   {algo}: {resource} = {img_instance.result[resource]}")
-                    update_dataframe(results_df, img_instance, algo, resource)
+                for resource in resources:
+                    try:
+                        print(f"   Ejecutando {algo} ({resource})...")
+                        img_instance.process_ws(ALGO=algo, res_type=resource)
+                        print(f"   {algo}: {resource} = {img_instance.result[resource]}")
+                        update_dataframe(results_df, img_instance, algo, resource)
 
-                    if NEED_SAVE:
-                        log_labels_2d(LOGS_FOLDER, f"{algo}_{img_instance.cluster}_{img_instance.size}", img_instance.labels)
+                        if NEED_SAVE:
+                            log_labels_2d(LOGS_FOLDER, f"{algo}_{img_instance.cluster}_{img_instance.size}", img_instance.labels)
 
-                except Exception as e:
-                    print(f"   Error con {algo}: {e}")
+                    except Exception as e:
+                        print(f"   Error con {algo} ({resource}): {e}")
 
         except Exception as e:
             print(f"Error procesando {filename}: {e}")
 
     # Guardar CSV de resultados
     os.makedirs(os.path.join(LOGS_FOLDER, "csv"), exist_ok=True)
-    suffix = "proc_time.csv" if resource == "time" else "proc_mem.csv"
+    suffix = "benchmark_results.csv"
     csv_path = os.path.join(LOGS_FOLDER, "csv", suffix)
     results_df.to_csv(csv_path)
     print(f"\nResultados guardados en: {csv_path}")
